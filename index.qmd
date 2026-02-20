@@ -16,7 +16,7 @@ execute:
   echo: false
   message: false
   warning: false
-  cache: true
+  cache: false
 knitr:
   opts_chunk:
     dev: "ragg_png"
