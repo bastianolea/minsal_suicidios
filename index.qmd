@@ -22,6 +22,8 @@ knitr:
     dev: "ragg_png"
     dev.args:
       bg: "transparent"
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r paquetes}
@@ -32,6 +34,7 @@ library(ggforce)
 library(ggblend)
 library(scales)
 library(tidyr)
+library(stringr)
 
 source("funciones.R")
 
@@ -46,6 +49,7 @@ color <- list(femenino = color_base,
               # fondo = color_base |> col_darker(38) |> col_saturate(-45),
               fondo = color_base |> col_darker(39) |> col_saturate(-50),
               texto = color_base |> col_lighter(35) |> col_saturate(-50),
+              destacado = color_base |> col_lighter(20) |> col_saturate(-30),
               titulos = color_base |> col_darker(10) |> col_saturate(-40),
               # titulos = color_base |> col_lighter(25) |> col_saturate(-40),
               detalle = color_base |> col_darker(20) |> col_saturate(-40),
@@ -74,7 +78,7 @@ library(showtext)
 font_add_google("Cabin", "Cabin")
 font_add_google("Rubik", "Rubik")
 showtext_auto()
-showtext_opts(dpi = 200)
+showtext_opts(dpi = 240)
 
 library(gfonts)
 use_font("cabin", "fonts/css/cabin.css")
@@ -120,6 +124,36 @@ datos_año <- datos |>
   mutate(condicion = recode_values(condicion,
                                    "intento" ~ "Intentos de suicidio",
                                    "consumado" ~ "Suicidios consumados"))
+
+# diagnósticos de causas
+datos_diag <- arrow::read_parquet("datos/minsal_suicidios_diagnostico.parquet")
+
+datos_diag <- datos_diag |> 
+  limpiar_causas()
+
+datos_diag_conteo <- datos_diag |> 
+  filter(condicion_egreso == "consumado") |>
+  select(genero, glosa) |>
+  count(genero, glosa, sort = T) |>
+  complete(genero, glosa, fill = list(n = 0)) |>
+  # print(n=Inf)
+  group_by(genero) |> 
+  mutate(p = n / sum(n)) |> 
+  group_by(glosa) |> 
+  mutate(total = sum(n)) |> 
+  ungroup() |> 
+  filter(total > 3) |> 
+  mutate(glosa = forcats::fct_reorder(glosa, total))
+
+datos_diag_wide <- datos_diag_conteo |>
+  select(-total, -p) |> 
+  pivot_wider(names_from = genero, values_from = n, 
+              values_fill = 0) |> 
+  mutate(mayor = if_else(femenino >= masculino, "femenino", "masculino")) |> 
+  mutate(menor = if_else(femenino < masculino, "femenino", "masculino")) |> 
+  group_by(glosa) |> 
+  mutate(max = max(femenino, masculino),
+         min = min(femenino, masculino))
 ```
 
 En esta plataforma se exploran estadísticas de suicidio en Chile entre 2020 y 2024 **con perspectiva de género**, visibilizando las diferencias que sufren [mujeres]{.fem} y [hombres]{.masc}.
@@ -129,13 +163,41 @@ El [Departamento de Estadísticas e Información de Salud](https://deis.minsal.c
 Los datos de egresos médicos incluyen el diagnóstico de las y los pacientes, y si sobrevivieron o no a sus aflicciones. Según el diagnóstico de cada paciente, es posible identificar casos de **lesiones autoinfligidas intencionalmente**, interpretables como **intentos de suicidio**. En base al egreso _con o sin vida_ de los pacientes, se pueden distinguir intentos de suicidio y suicidios consumados.
 
 
-## Aumento de los suicidios en mujeres
+::: {.ayuda}
 
-suicidio como fenómeno en aumento
+Si estás pasando por un momento difícil, por favor busca ayuda.
 
-aumento porcentual entre 2020 y 2024
+- _Línea de prevención del suicidio (Chile):_ llama al *4141 a cualquier hora del día.
+- _Fono de orientación en violencias de género:_ llama al 1455
 
-[femenino]{.fem} y [masculino]{.masc}
+:::
+
+
+## Aumento de los intentos de suicidio en mujeres
+
+En los últimos 6 años, las estadísticas de suicidio en Chile han ido **en aumento**.
+
+```{r}
+aumento_intentos <- datos_año |> 
+  filter(condicion == "Intentos de suicidio") |> 
+  filter(año == min(año) | año == max(año)) |> 
+  pivot_wider(names_from = año, values_from = valor,
+              names_prefix = "valor_") |> 
+  mutate(p = (valor_2024 - valor_2020) / valor_2020) |> 
+  select(genero, p) |> 
+  pivot_wider(names_from = genero, values_from = p)
+
+aumento_intentos_fem_n <- datos_año |> 
+  filter(genero == "femenino", condicion == "Intentos de suicidio") |> 
+  filter(año %in% c(2020, 2024)) |> 
+  select(año, valor) |> 
+  pivot_wider(names_from = año, values_from = valor,
+              names_prefix = "valor_")
+```
+
+Entre los años 2020 y 2024, los intentos de suicidio en [mujeres]{.fem} han aumentado en un `r percent(aumento_intentos$femenino)`, pasando de 
+`r number(aumento_intentos_fem_n$valor_2020)` intentos en 2020 a `r number(aumento_intentos_fem_n$valor_2024)` intentos en 2024, mientras que en [hombres]{.masc} el aumento ha sido de `r percent(aumento_intentos$masculino)`.
+
 
 ```{r suicidio_intentos_años}
 datos_año |> 
@@ -148,13 +210,28 @@ datos_año |>
   ggblend::copy_over(color = color$texto, alpha = 0.4)
 ```
 
+```{r}
+aumento_intentos_2022 <- datos_año |> 
+  filter(condicion == "Intentos de suicidio") |> 
+  filter(año == 2021 | año == 2022) |> 
+  pivot_wider(names_from = año, values_from = valor,
+              names_prefix = "valor_") |> 
+  mutate(p = (valor_2022 - valor_2021) / valor_2021) |> 
+  select(genero, p) |> 
+  pivot_wider(names_from = genero, values_from = p)
+```
 
-## Desigualdad de género en intentos de suicidio
+Entre los años 2021 y 2022, destaca un **aumento** en los intentos de suicidio en [mujeres]{.fem} de un `r percent(aumento_intentos_2022$femenino)`.
 
-diferencia en víctimas, diferencia porcentual
-por cada x, y
+```{r}
+comparacion_intento_fem <- conteo |> 
+  filter(condicion == "intento") |> 
+  select(genero, valor) |>
+  pivot_wider(names_from = genero, values_from = valor) |> 
+  mutate(veces = femenino / masculino)
+```
 
-[femenino]{.fem} y [masculino]{.masc}
+Si consideramos la **cantidad total de casos** entre 2020 y 2024, vemos que las [mujeres]{.fem} presentan una **cantidad mucho mayor** de intentos de suicidio que los hombres: `r number(comparacion_intento_fem$femenino)` casos, que equivalen a una cantidad `r number(comparacion_intento_fem$veces, accuracy = 0.1)` veces mayor que los casos en [hombres]{.masc} (`r number(comparacion_intento_fem$masculino)`).
 
 ```{r suicidio_intentos_comparacion}
 conteo |> 
@@ -163,11 +240,43 @@ conteo |>
 ```
 
 
-## Mayor cantidad de víctimas hombres
+## Mayor cantidad de víctimas fatales en hombres
 
-sin embargo...
+Sin embargo, cuando analizamos las cifras de víctimas de **suicidios consumados** (con consecuencias letales) entre 2020 y 2024, se presenta una mayoría de casos de [hombres]{.masc}.
 
-[femenino]{.fem} y [masculino]{.masc}
+
+```{r suicidio_consumados_comparacion}
+conteo |> 
+  filter(condicion == "consumado") |>
+  grafico_circulos_encima()
+```
+
+```{r}
+comparacion_consumado_masc <- conteo |> 
+  filter(condicion == "consumado") |> 
+  select(genero, valor) |>
+  pivot_wider(names_from = genero, values_from = valor) |> 
+  mutate(dif = masculino - femenino)
+```
+
+
+Se evidencia un total de `r number(comparacion_consumado_masc$masculino)` víctimas fatales
+en [hombres]{.masc}, que significa una
+diferencia de `r number(comparacion_consumado_masc$dif)` muertes sobre la cantidad de mujeres (`r number(comparacion_consumado_masc$femenino)`).
+
+
+```{r}
+aumento_consumados <- datos_año |> 
+  filter(condicion == "Suicidios consumados") |> 
+  filter(año == min(año) | año == max(año)) |> 
+  pivot_wider(names_from = año, values_from = valor,
+              names_prefix = "valor_") |> 
+  mutate(p = (valor_2024 - valor_2020) / valor_2020) |> 
+  select(genero, p) |> 
+  pivot_wider(names_from = genero, values_from = p)
+```
+
+La **tendencia** de los suicidios también presenta un alza a través de los años. Entre 2020 y 2024, los suicidios consumados han aumentado un `r percent(aumento_consumados$masculino)` en [hombres,]{.masc} mientras que en mujeres solamente un `r percent(aumento_consumados$femenino)`.
 
 ```{r suicidio_consumados_años}
 
@@ -177,30 +286,33 @@ datos_año |>
   scale_y_continuous(labels = number,
                      breaks = pretty_breaks(n = 8),
                      expand = expansion(c(0.07, 0.07))) +
-  geom_text(data = ~filter(.x, año %in% c(2022, 2023)),
+  geom_text(data = ~filter(.x, año %in% c(2021, 2022)),
             aes(label = number(valor)),
-            nudge_y = 1, 
+            nudge_y = 1.3, 
             size = 4, fontface = "bold") |> 
   ggblend::copy_over(color = color$texto, alpha = 0.4)
 ```
 
 
-## Suicidios consumados
-
-las cifras son similares, pero con mayoría masculina
-
-[femenino]{.fem} y [masculino]{.masc}
-
-
-```{r suicidio_consumados_comparacion}
-conteo |> 
-  filter(condicion == "consumado") |>
-  grafico_circulos_encima()
+```{r}
+aumento_consumados_2022 <- datos_año |> 
+  filter(condicion == "Suicidios consumados") |> 
+  filter(año == max(2021) | año == max(2022)) |> 
+  pivot_wider(names_from = año, values_from = valor,
+              names_prefix = "valor_") |> 
+  mutate(p = (valor_2022 - valor_2021) / valor_2021) |> 
+  select(genero, p) |> 
+  pivot_wider(names_from = genero, values_from = p)
 ```
 
-## Comparación
+Entre 2021 y 2022 ambos géneros presentaron fuertes aumentos en la cantidad de víctimas, de `r percent(aumento_consumados_2022$masculino)` y `r percent(aumento_consumados_2022$femenino)` en hombres y mujeres respectivamente.
 
-[femenino]{.fem} y [masculino]{.masc}
+
+## Diferencias en perspectiva
+
+Como podemos ver, el fenómeno presenta disparidades entre géneros complejas: las [mujeres]{.fem} recurren al intento de suicidio en mucha mayor cantidad que los hombres, pero los [hombres]{.masc} concretan el suicidio en mayor cantidad.
+
+Esta gráfica enfrenta las realidades de [mujeres]{.fem} (a la izquierda) y [hombres]{.masc} (a la derecha), midiendo la cantidad de víctimas en círculos, donde los círculos centrales representan las víctimas fatales.
 
 ```{r suidicio_unidos}
 datos_conteo |> 
@@ -233,13 +345,13 @@ posicion_intentos <- datos_conteo |>
 
 ::: {.column}
 
-Las [mujeres]{.fem} presentan una mayor cantidad de intentos de suicidio, con `r number(diferencia_intentos)` intentos más que los hombres.
+Por un lado, las [mujeres]{.fem} presentan una mayor cantidad de intentos de suicidio entre 2020 y 2024, con `r number(diferencia_intentos)` intentos más que los hombres.
 
 :::
 
 ::: {.column style='text-align: right;'}
 
-Los [hombres]{.masc} presentan una mayor cantidad de suicidios consumados, con `r number(diferencia_consumados)` suicidios más que las mujeres.
+Por otro lado, los [hombres]{.masc} presentan una mayor cantidad de suicidios consumados entre 2020 y 2024, con `r number(diferencia_consumados)` suicidios más que las mujeres.
 
 :::
 
@@ -247,10 +359,37 @@ Los [hombres]{.masc} presentan una mayor cantidad de suicidios consumados, con `
 
 
 
+## Métodos según género
 
-----
+Las diferencias de género prevalecen también en los métodos de las **lesiones autoinflingidas intencionalmente**. Este gráfico muestra la cantidad de casos según el tipo de lesiones diagnosticado.
 
-:::: {style="margin-top:48px; font-size: 80%;"}
+Los suicidios por ahorcamiento, armas de fuego, y objetos cortantes son más prevalentes en [hombres,]{.masc} mientras que el uso de drogas o medicamentos de distintos tipos son más frecuentes en [mujeres.]{.fem}
+
+```{r suicidio_causas_consumado}
+#| fig-height: 6
+datos_diag_conteo |> 
+  grafico_causas(datos_diag_wide) +
+  escala_genero()
+```
+
+El tipo de lesión intencional más frecuente entre ambos géneros es el _ahorcamiento, estrangulamiento o sofocación_ en [hombres.]{.masc}
+
+::: {.espaciado}
+
+El fenómeno del suicidio es oscuro y complejo. Estas diferencias estadísticas expresan una realidad trágica, sufrida de maneras diferentes por hombres y mujeres.
+
+:::
+
+::: {.ayuda}
+
+Si estás pasando por un momento difícil, o estás teniendo ideas suicidas, **por favor busca ayuda**. El suicidio nunca es la solución, y te aseguro que todo va a mejorar.
+
+- _Línea de prevención del suicidio (Chile):_ llama al *4141 a cualquier hora del día.
+- _Fono de orientación en violencias de género:_ llama al 1455
+
+:::
+
+::: {.footer}
 
 Desarrollado por [Bastián Olea Herrera](https://bastianolea.rbind.io) con el lenguaje de programación R. Código disponible en [GitHub](https://github.com/bastianolea/minsal_suicidios).
 

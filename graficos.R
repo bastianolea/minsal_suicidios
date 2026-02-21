@@ -156,27 +156,29 @@ datos_año |>
 # causas ----
 datos_diag <- arrow::read_parquet("datos/minsal_suicidios_diagnostico.parquet")
 
-datos_diag <- datos_diag |> 
-  mutate(glosa_categoria = str_replace(glosa_categoria, 
-                                       "autoinfligido intencionalmente por, y exposición (al|a)",
-                                       "por"),
-         glosa_categoria = str_remove(glosa_categoria, 
-                                      "autoinfligida intencionalmente ")
-  )
+# datos_diag |> 
+#   count(glosa_categoria, sort = T) |> 
+#   print(n=Inf)
 
+# procesar_
+
+
+
+datos_diag <- datos_diag |> 
+  limpiar_causas()
 
 datos_diag |> 
-  count(glosa_categoria, sort = T)
+  count(glosa, sort = T)
 
 datos_diag |> 
   filter(condicion_egreso == "consumado") |>
-  count(genero, glosa_categoria, sort = T) |> 
+  count(genero, glosa, sort = T) |> 
   pivot_wider(names_from = genero, values_from = n, values_fill = 0) |> 
   print(n=Inf)
 
 datos_diag |> 
   filter(condicion_egreso == "consumado") |>
-  count(genero, glosa_categoria, sort = T) |> 
+  count(genero, glosa, sort = T) |> 
   group_by(genero) |> 
   mutate(p = n / sum(n)) |> 
   select(-n) |> 
@@ -185,25 +187,18 @@ datos_diag |>
   filter(masculino + femenino > 0.05) |> 
   print(n=Inf)
 
-
-
-datos_diag_2 <- datos_diag |> 
+datos_diag_conteo <- datos_diag |> 
   filter(condicion_egreso == "consumado") |>
-  count(genero, glosa_categoria, sort = T) |> 
+  count(genero, glosa, sort = T) |> 
   group_by(genero) |> 
   mutate(p = n / sum(n)) |> 
-  group_by(glosa_categoria) |> 
+  group_by(glosa) |> 
   mutate(total = sum(n)) |> 
   ungroup() |> 
-  filter(total > 5) |> 
-  mutate(glosa = str_remove_all(glosa_categoria, "Lesión por|Envenenamiento por "),
-         glosa = str_remove_all(glosa, ", y (los|las) no especificad(a|o)s|, no clasificadas en otra parte"),
-         glosa = str_remove_all(glosa, "antiepilépticas,|, antiparkinsonianas"),
-         glosa = str_remove_all(glosa, "^otr(a|o)s"),
-         glosa = str_replace(glosa, "otras armas", "armas"),
-         glosa = str_squish(glosa))
+  filter(total > 4) |> 
+  mutate(glosa = forcats::fct_reorder(glosa, n))
 
-datos_diag_w <- datos_diag_2 |>
+datos_diag_wide <- datos_diag_conteo |>
   select(-total, -p) |> 
   pivot_wider(names_from = genero, values_from = n, 
               values_fill = 0) |> 
@@ -212,27 +207,6 @@ datos_diag_w <- datos_diag_2 |>
   mutate(max = max(femenino, masculino),
          min = min(femenino, masculino))
 
-datos_diag_2 |> 
-  mutate(glosa = forcats::fct_reorder(glosa, n)) |> 
-  ggplot() +
-  aes(x = n, y = glosa, 
-      color = genero) +
-  geom_segment(data = datos_diag_w,
-               aes(x = min, xend = max, 
-                   y = glosa, yend = glosa,
-                   color = mayor), 
-               inherit.aes = F, size = 0.4) +
-  geom_text(data = datos_diag_w,
-            aes(x = max, y = glosa, label = number(max)),
-            nudge_x = 2, hjust = 0,
-            size = 3, fontface = "bold", color = color$texto) +
-  geom_text(data = datos_diag_w,
-            aes(x = min, y = glosa, label = number(min)),
-            nudge_x = -2, hjust = 1,
-            size = 3, fontface = "bold", color = color$texto) +
-  geom_point(size = 4) +
-  scale_y_discrete(labels = function(x) str_wrap(x, width = 30)) +
-  theme(axis.text.y = element_text(lineheight = 0.7)) +
-  theme(legend.position = "none") +
-  labs(y = "Lesiones autoinflingidas intencionalmente",
-       x = "Cantidad de víctimas letales por género")
+
+datos_diag_conteo |> 
+  grafico_causas(datos_diag_wide)
