@@ -8,5 +8,6 @@ datos/*
 !datos/minsal_suicidios.parquet
 !datos/minsal_suicidios_diagnostico.parquet
 !datos/cut_comunas.rds
+!datos/Diccionario BD egresos hospitalario.xlsx
 /.quarto/
 **/*.quarto_ipynb
