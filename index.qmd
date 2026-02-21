@@ -88,7 +88,6 @@ number_options(big.mark = ".",
                decimal.mark = ",")
 ```
 
-
 ```{r datos}
 #| cache: true
 
@@ -156,11 +155,11 @@ datos_diag_wide <- datos_diag_conteo |>
          min = min(femenino, masculino))
 ```
 
-En esta plataforma se exploran estadísticas de suicidio en Chile entre 2020 y 2024 **con perspectiva de género**, visibilizando las diferencias que sufren [mujeres]{.fem} y [hombres]{.masc}.
+El [Departamento de Estadísticas e Información de Salud](https://deis.minsal.cl) (DEIS) del Ministerio de Salud de Chile, a través de su [plataforma de datos abiertos](https://deis.minsal.cl/#datosabiertos), proporciona datos detallados sobre **egresos médicos**, que corresponden a casos de pacientes hospitalizados y sus desenlaces. 
 
-El [Departamento de Estadísticas e Información de Salud](https://deis.minsal.cl) (DEIS) del Ministerio de Salud de Chile, a través de su [plataforma de datos abiertos](https://deis.minsal.cl/#datosabiertos), proporciona datos detallados sobre **egresos médicos**, que corresponden a estadísticas sobre pacientes hospitalizados. 
+Los datos de egresos médicos incluyen el diagnóstico de las y los pacientes, su género, su ubicación, y si sobrevivieron o no a sus aflicciones. Según el diagnóstico de cada paciente, es posible identificar casos de **lesiones autoinfligidas intencionalmente**, interpretables como **intentos de suicidio**. En base al egreso _con vida_ (alta médica) o _sin vida_ (fallecimiento) de los pacientes, se pueden distinguir **intentos de suicidio** y **suicidios consumados**.
 
-Los datos de egresos médicos incluyen el diagnóstico de las y los pacientes, y si sobrevivieron o no a sus aflicciones. Según el diagnóstico de cada paciente, es posible identificar casos de **lesiones autoinfligidas intencionalmente**, interpretables como **intentos de suicidio**. En base al egreso _con o sin vida_ de los pacientes, se pueden distinguir intentos de suicidio y suicidios consumados.
+En esta plataforma se exploran estas estadísticas de suicidio en Chile, entre 2020 y 2024, y **con perspectiva de género**, visibilizando las diferencias que sufren [mujeres]{.fem} y [hombres]{.masc}.
 
 
 ::: {.ayuda}
@@ -175,7 +174,7 @@ Si estás pasando por un momento difícil, por favor busca ayuda.
 
 ## Aumento de los intentos de suicidio en mujeres
 
-En los últimos 6 años, las estadísticas de suicidio en Chile han ido **en aumento**.
+En los últimos 6 años, y según los datos de egresos médicos, las estadísticas de suicidio en Chile han ido **en aumento**.
 
 ```{r}
 aumento_intentos <- datos_año |> 
@@ -391,6 +390,6 @@ Si estás pasando por un momento difícil, o estás teniendo ideas suicidas, **p
 
 ::: {.footer}
 
-Desarrollado por [Bastián Olea Herrera](https://bastianolea.rbind.io) con el lenguaje de programación R. Código disponible en [GitHub](https://github.com/bastianolea/minsal_suicidios).
+Desarrollado por [Bastián Olea Herrera](https://bastianolea.rbind.io) con el lenguaje de programación R. Código disponible en [GitHub](https://github.com/bastianolea/minsal_suicidios_genero).
 
 ::::
