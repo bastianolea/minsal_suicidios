@@ -13,10 +13,10 @@ Visualizaciones de datos y estadísticas disponibles en: [https://bastianolea.gi
 
 
 ## Datos
-Disponibles en `datos/minsal_suicidios.parquet`
+Descarga los datos procesados:
 
-- Egresos de pacientes, por género, por intento de suicidio o suicidio consumado
-- Egresos de pacientes, por género, por intento de suicidio o suicidio consumado, y con información de diagnóstico
+- [Egresos de pacientes, por género, por intento de suicidio o suicidio consumado](https://github.com/bastianolea/minsal_suicidios_genero/raw/master/datos/minsal_suicidios.parquet)
+- [Egresos de pacientes, por género, por intento de suicidio o suicidio consumado, y con información de diagnóstico](https://github.com/bastianolea/minsal_suicidios_genero/raw/master/datos/minsal_suicidios_diagnostico.parquet)
 
 
 ### Fuente 
